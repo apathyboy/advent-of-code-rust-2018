@@ -15,21 +15,18 @@ pub fn part_two(input: &str) -> Option<i32> {
     let mut frequencies = HashSet::new();
     let mut current_frequency = 0;
 
-    for i in input
+    input
         .lines()
         .filter_map(|line| line.parse::<i32>().ok())
         .cycle()
-    {
-        current_frequency += i;
-
-        if frequencies.contains(&current_frequency) {
-            return Some(current_frequency);
-        }
-
-        frequencies.insert(current_frequency);
-    }
-
-    panic!("No duplicate frequency found");
+        .find_map(|change| {
+            current_frequency += change;
+            if frequencies.insert(current_frequency) {
+                None
+            } else {
+                Some(current_frequency)
+            }
+        })
 }
 
 #[cfg(test)]
