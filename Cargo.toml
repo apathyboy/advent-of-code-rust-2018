@@ -28,3 +28,5 @@ pico-args = "0.5.0"
 tinyjson = "2.5.1"
 
 # Solution dependencies
+rstest = "0.18.2"
+itertools = "0.12.1"
