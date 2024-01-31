@@ -5,14 +5,15 @@ advent_of_code::solution!(2);
 fn count_differences(a: &str, b: &str) -> usize {
     a.chars()
         .zip(b.chars())
-        .map(|(a_c, b_c)| if a_c != b_c { 1 } else { 0 })
-        .sum()
+        .filter(|(a_c, b_c)| a_c != b_c)
+        .count()
 }
 
 fn common_characters(a: &str, b: &str) -> Vec<char> {
     a.chars()
         .zip(b.chars())
-        .filter_map(|(a_c, b_c)| if a_c == b_c { Some(a_c) } else { None })
+        .filter(|(a_c, b_c)| a_c == b_c)
+        .map(|(a_c, _)| a_c)
         .collect()
 }
 
@@ -21,10 +22,7 @@ fn has_exact_count(input: &str, count: usize) -> bool {
         .chars()
         .into_group_map_by(|&x| x)
         .into_values()
-        .map(|v| v.len())
-        .filter(|l| *l == count)
-        .count()
-        >= 1
+        .any(|l| l.len() == count)
 }
 
 pub fn part_one(input: &str) -> Option<u32> {
@@ -32,25 +30,24 @@ pub fn part_one(input: &str) -> Option<u32> {
         .lines()
         .map(|line| {
             (
-                if has_exact_count(line, 2) { 1 } else { 0 },
-                if has_exact_count(line, 3) { 1 } else { 0 },
+                has_exact_count(line, 2) as u32,
+                has_exact_count(line, 3) as u32,
             )
         })
-        .fold((0, 0), |acc, x| (acc.0 + x.0, acc.1 + x.1));
+        .fold((0, 0), |(acc_twos, acc_threes), (twos, threes)| {
+            (acc_twos + twos, acc_threes + threes)
+        });
 
     Some(twos * threes)
 }
 
 pub fn part_two(input: &str) -> Option<String> {
-    input
-        .lines()
-        .find_map(|line| {
-            input
-                .lines()
-                .find(|&l2| count_differences(line, l2) == 1)
-                .map(|matching| common_characters(line, matching))
-        })
-        .map(|common| common.iter().collect::<String>())
+    input.lines().find_map(|line| {
+        input
+            .lines()
+            .find(|&l2| count_differences(line, l2) == 1)
+            .map(|matching| common_characters(line, matching).iter().collect::<String>())
+    })
 }
 
 #[cfg(test)]
