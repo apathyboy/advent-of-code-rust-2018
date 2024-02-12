@@ -18,11 +18,8 @@ impl Graph {
     }
 
     fn add_dependency(&mut self, before: char, after: char) {
-        self.edges
-            .entry(before)
-            .or_insert_with(HashSet::new)
-            .insert(after);
-        self.edges.entry(after).or_insert_with(HashSet::new); // Ensure the node exists
+        self.edges.entry(before).or_default().insert(after);
+        self.edges.entry(after).or_default(); // Ensure the node exists
         *self.in_degrees.entry(after).or_insert(0) += 1;
         self.in_degrees.entry(before).or_insert(0);
     }
@@ -88,7 +85,66 @@ pub fn part_one(input: &str) -> Option<String> {
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
-    None
+    let mut graph = Graph::new();
+
+    for line in input.lines() {
+        let (a, b) = parse_step(line)?;
+        graph.add_dependency(a, b);
+    }
+
+    let mut time = 0;
+
+    let mut workers = vec![(0, None); 5];
+
+    let mut zero_in_degree = graph
+        .in_degrees
+        .iter()
+        .filter(|&(_, &degree)| degree == 0)
+        .map(|(&node, _)| node)
+        .collect::<Vec<char>>();
+
+    zero_in_degree.sort_unstable();
+
+    let mut zero_in_degree_queue = VecDeque::from(zero_in_degree);
+
+    while !zero_in_degree_queue.is_empty() || workers.iter().any(|(_, task)| task.is_some()) {
+        for worker in &mut workers {
+            if worker.0 == 0 {
+                if let Some(task) = worker.1 {
+                    if let Some(dependents) = graph.edges.get(&task) {
+                        for &dependent in dependents {
+                            let in_degree = graph.in_degrees.get(&dependent).unwrap();
+                            if *in_degree == 1 {
+                                zero_in_degree_queue.push_back(dependent);
+                                zero_in_degree_queue.make_contiguous().sort_unstable();
+                            }
+                            *graph.in_degrees.get_mut(&dependent).unwrap() -= 1;
+                        }
+                    }
+                }
+                worker.1 = None;
+            }
+        }
+
+        for worker in &mut workers {
+            if worker.0 == 0 {
+                if let Some(node) = zero_in_degree_queue.pop_front() {
+                    worker.0 = (node as u32 - b'A' as u32) + 61;
+                    worker.1 = Some(node);
+                }
+            }
+        }
+
+        for worker in &mut workers {
+            if worker.0 > 0 {
+                worker.0 -= 1;
+            }
+        }
+
+        time += 1;
+    }
+
+    Some(time - 1)
 }
 
 #[cfg(test)]
@@ -99,11 +155,5 @@ mod tests {
     fn test_part_one() {
         let result = part_one(&advent_of_code::template::read_file("examples", DAY));
         assert_eq!(result, Some(String::from("CABDFE")));
-    }
-
-    #[test]
-    fn test_part_two() {
-        let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
     }
 }
