@@ -5,7 +5,7 @@ advent_of_code::solution!(9);
 fn parse(input: &str) -> (usize, usize) {
     let (players, marbles) = input.trim().split_once("; ").unwrap();
 
-    let players = players.split_whitespace().nth(0).unwrap().parse().unwrap();
+    let players = players.split_whitespace().next().unwrap().parse().unwrap();
     let marbles = marbles.split_whitespace().nth(4).unwrap().parse().unwrap();
 
     (players, marbles)
