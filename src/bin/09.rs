@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 advent_of_code::solution!(9);
 
 fn parse(input: &str) -> (usize, usize) {
@@ -9,69 +11,34 @@ fn parse(input: &str) -> (usize, usize) {
     (players, marbles)
 }
 
-pub fn part_one(input: &str) -> Option<usize> {
-    let (players, marbles) = parse(input);
-
-    println!(
-        "{} players; last marble is worth {} points",
-        players, marbles
-    );
-
-    let mut circle = Vec::with_capacity(marbles);
-    circle.push(0);
-
-    let mut current_marble = 0;
+fn play_game(players: usize, marbles: usize) -> Option<usize> {
+    let mut circle = VecDeque::with_capacity(marbles);
+    circle.push_back(0);
 
     let mut scores = vec![0; players];
 
     for marble in 1..=marbles {
         if marble % 23 == 0 {
-            let player = marble % players;
-            scores[player] += marble;
-
-            let remove_index = (current_marble + circle.len() - 7) % circle.len();
-            scores[player] += circle.remove(remove_index);
-
-            current_marble = remove_index % circle.len();
+            circle.rotate_right(7);
+            scores[marble % players] += marble + circle.pop_back().unwrap();
+            circle.rotate_left(1);
         } else {
-            let insert_index = (current_marble + 2) % circle.len();
-            circle.insert(insert_index, marble);
-            current_marble = insert_index;
+            circle.rotate_left(1);
+            circle.push_back(marble);
         }
     }
 
     Some(*scores.iter().max().unwrap())
 }
 
+pub fn part_one(input: &str) -> Option<usize> {
+    let (players, marbles) = parse(input);
+    play_game(players, marbles)
+}
+
 pub fn part_two(input: &str) -> Option<usize> {
     let (players, marbles) = parse(input);
-
-    let mut circle = Vec::with_capacity(marbles);
-    circle.push(0);
-
-    let mut current_marble = 0;
-
-    let mut scores = vec![0; players];
-
-    for marble in 1..=marbles * 100 {
-        if marble % 23 == 0 {
-            let player = marble % players;
-            scores[player] += marble;
-
-            let remove_index = (current_marble + circle.len() - 7) % circle.len();
-            scores[player] += circle.remove(remove_index);
-
-            current_marble = remove_index % circle.len();
-        } else {
-            let insert_index = (current_marble + 2) % circle.len();
-            circle.insert(insert_index, marble);
-            current_marble = insert_index;
-        }
-
-        println!("{}: {}", marble, current_marble);
-    }
-
-    Some(*scores.iter().max().unwrap())
+    play_game(players, marbles * 100)
 }
 
 #[cfg(test)]
