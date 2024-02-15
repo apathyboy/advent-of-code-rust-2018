@@ -41,22 +41,23 @@ fn find_bounds(points: &[LightPoint]) -> (IVec2, IVec2) {
     (IVec2::new(min_x, min_y), IVec2::new(max_x, max_y))
 }
 
-fn print_points(points: &[LightPoint]) {
+fn format_points(points: &[LightPoint]) -> String {
+    let mut result = "".to_owned();
     let (upper_left, lower_right) = find_bounds(points);
 
     for y in upper_left.y..=lower_right.y {
         for x in upper_left.x..=lower_right.x {
             if points.iter().any(|p| p.position == IVec2::new(x, y)) {
-                print!("#");
+                result.push('#');
             } else {
-                print!(".");
+                result.push('.');
             }
         }
 
-        println!();
+        result.push('\n');
     }
 
-    println!();
+    result
 }
 
 fn tick(points: &mut [LightPoint]) {
@@ -65,7 +66,7 @@ fn tick(points: &mut [LightPoint]) {
     }
 }
 
-pub fn part_one(input: &str) -> Option<u32> {
+pub fn part_one(input: &str) -> Option<String> {
     let mut points = input
         .lines()
         .filter_map(parse_light_point)
@@ -84,9 +85,7 @@ pub fn part_one(input: &str) -> Option<u32> {
         (upper_left, lower_right) = find_bounds(&points);
     }
 
-    print_points(&prev_state);
-
-    None
+    Some(format_points(&prev_state))
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
@@ -120,7 +119,7 @@ mod tests {
     #[test]
     fn test_part_one() {
         let result = part_one(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+        assert_eq!(result, Some(String::from("#...#..###\n#...#...#.\n#...#...#.\n#####...#.\n#...#...#.\n#...#...#.\n#...#...#.\n#...#..###\n")));
     }
 
     #[test]
