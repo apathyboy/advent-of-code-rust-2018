@@ -82,14 +82,10 @@ impl GrowOp {
                 (self.current_state.as_str()[pot as usize - 2..pot as usize + 3]).to_string()
             };
 
-            //print!("Searching: {}", nearby);
-
             if let Some(result) = self.rules.iter().find(|r| r.pattern == nearby) {
                 next_state.push(result.result);
-                //  println!(" result {}", result.result);
             } else {
                 next_state.push('.');
-                //println!(" result . - no rule found");
             }
         }
 
@@ -121,14 +117,27 @@ pub fn part_one(input: &str) -> Option<usize> {
     Some(grow_op.plant_count())
 }
 
-pub fn part_two(input: &str) -> Option<usize> {
+pub fn part_two(input: &str) -> Option<isize> {
     let mut grow_op = parse(input)?;
 
-    for _ in 1..=110 {
+    let mut gen = 1;
+    let mut prev_plants = grow_op.plant_count() as isize;
+    let mut prev_delta = 0;
+
+    loop {
         grow_op.progress();
+        let delta = grow_op.plant_count() as isize - prev_plants;
+
+        if delta == prev_delta {
+            break;
+        }
+
+        prev_plants = grow_op.plant_count() as isize;
+        prev_delta = delta;
+        gen += 1;
     }
 
-    Some(grow_op.plant_count() + ((50000000000 - 110) * 46))
+    Some(grow_op.plant_count() as isize + ((50000000000 - gen) * prev_delta))
 }
 
 #[cfg(test)]
