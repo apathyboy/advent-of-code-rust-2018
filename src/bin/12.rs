@@ -2,16 +2,13 @@ advent_of_code::solution!(12);
 
 #[derive(Debug)]
 struct GrowRule {
-    pattern: String,
+    pattern: Vec<char>,
     result: char,
 }
 
 impl GrowRule {
-    fn new(pattern: &str, result: char) -> Self {
-        Self {
-            pattern: pattern.to_owned(),
-            result,
-        }
+    fn new(pattern: Vec<char>, result: char) -> Self {
+        Self { pattern, result }
     }
 }
 
@@ -25,8 +22,8 @@ struct GrowOp {
 impl GrowOp {
     fn new(initial_state: &str, rules: Vec<GrowRule>) -> Self {
         Self {
-            starting_pot: 0,
-            current_state: initial_state.to_owned(),
+            starting_pot: 2,
+            current_state: format!("..{}..", initial_state),
             rules,
         }
     }
@@ -35,11 +32,11 @@ impl GrowOp {
         self.current_state
             .chars()
             .enumerate()
-            .map(|(i, c)| {
+            .filter_map(|(i, c)| {
                 if c == '#' {
-                    i as isize - self.starting_pot
+                    Some(i as isize - self.starting_pot)
                 } else {
-                    0
+                    None
                 }
             })
             .sum::<isize>() as usize
@@ -47,57 +44,27 @@ impl GrowOp {
 
     fn progress(&mut self) {
         let mut next_state = String::new();
-        let current_len = self.current_state.len();
 
-        for pot in -2..current_len as isize + 2 {
-            let nearby = if pot == -2 {
-                format!("....{}", &self.current_state.as_str()[0..1])
-            } else if pot == -1 {
-                format!("...{}", &self.current_state.as_str()[0..2])
-            } else if pot == 0 {
-                format!("..{}", &self.current_state.as_str()[0..3])
-            } else if pot == 1 {
-                format!(".{}", &self.current_state.as_str()[0..4])
-            } else if pot == current_len as isize - 2 {
-                format!(
-                    "{}.",
-                    &self.current_state.as_str()[current_len - 4..current_len]
-                )
-            } else if pot == current_len as isize - 1 {
-                format!(
-                    "{}..",
-                    &self.current_state.as_str()[current_len - 3..current_len]
-                )
-            } else if pot == current_len as isize {
-                format!(
-                    "{}...",
-                    &self.current_state.as_str()[current_len - 2..current_len]
-                )
-            } else if pot == current_len as isize + 1 {
-                format!(
-                    "{}....",
-                    &self.current_state.as_str()[current_len - 1..current_len]
-                )
-            } else {
-                (self.current_state.as_str()[pot as usize - 2..pot as usize + 3]).to_string()
-            };
-
-            if let Some(result) = self.rules.iter().find(|r| r.pattern == nearby) {
+        for nearby in self.current_state.chars().collect::<Vec<_>>().windows(5) {
+            if let Some(result) = self.rules.iter().find(|&r| r.pattern == nearby) {
                 next_state.push(result.result);
             } else {
                 next_state.push('.');
             }
         }
 
-        self.starting_pot += 2;
-        self.current_state = next_state;
+        self.starting_pot += 1;
+        self.current_state = format!("...{}...", next_state);
     }
 }
 
 fn parse_rule(line: &str) -> Option<GrowRule> {
     let (pattern, result) = line.split_once(" => ")?;
 
-    Some(GrowRule::new(pattern, result.chars().next()?))
+    Some(GrowRule::new(
+        pattern.chars().collect(),
+        result.chars().next()?,
+    ))
 }
 
 fn parse(input: &str) -> Option<GrowOp> {
