@@ -98,37 +98,22 @@ impl Battle {
             .iter()
             .filter(|b| b.battler_type != battler_obj.battler_type && !b.is_dead)
             .map(|b| {
-                dirs.iter()
-                    .filter_map(|d| {
-                        let adjacent = *d + b.position;
-                        if !self.terrain.contains(&adjacent)
-                            && !self
-                                .battlers
-                                .iter()
-                                .any(|b| b.position == adjacent && !b.is_dead)
-                        {
-                            Some(adjacent)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
+                dirs.iter().filter_map(|d| {
+                    let adjacent = *d + b.position;
+                    if !self.terrain.contains(&adjacent)
+                        && !self
+                            .battlers
+                            .iter()
+                            .any(|b| b.position == adjacent && !b.is_dead)
+                    {
+                        Some(adjacent)
+                    } else {
+                        None
+                    }
+                })
+            });
 
         let mut shortest_paths = Vec::new();
-
-        //for other in open_adjacents.iter().flatten() {
-        //    let shortest_path: Option<Vec<IVec2>> = bfs(
-        //        &battler_obj.position,
-        //        |pos| self.successors(pos),
-        //        |pos| pos == other,
-        //    );
-        //
-        //    if shortest_path.is_some() {
-        //        shortest_paths.push(shortest_path.unwrap());
-        //    }
-        //}
 
         let battler_open_adjacents = dirs
             .iter()
@@ -147,12 +132,12 @@ impl Battle {
             })
             .collect::<Vec<_>>();
 
-        for other in open_adjacents.iter().flatten().unique() {
+        for other in open_adjacents.flatten().unique() {
             for &battler_open_adjacent in battler_open_adjacents.iter() {
                 let shortest_path: Option<Vec<IVec2>> = bfs(
                     &battler_open_adjacent,
                     |pos| self.successors(pos),
-                    |pos| pos == other,
+                    |pos| *pos == other,
                 );
 
                 if let Some(path) = shortest_path {
@@ -170,36 +155,6 @@ impl Battle {
                 .then(a[0].y.cmp(&b[0].y).then(a[0].x.cmp(&b[0].x)))
         });
 
-        //if shortest_paths.len() > 0 {
-        //    if shortest_paths
-        //        .iter()
-        //        .filter(|p| p.len() == shortest_paths[0].len())
-        //        .count()
-        //        > 1
-        //    {
-        //        for path in shortest_paths
-        //            .iter()
-        //            .filter(|p| p.len() == shortest_paths[0].len())
-        //        {
-        //            println!("{:?}", &path);
-        //        }
-        //
-        //        println!();
-        //    }
-        //}
-
-        /*
-        if self.rounds == 15 {
-            dbg!(&battler_obj);
-            dbg!(&self.battlers);
-            dbg!(&open_adjacents);
-            dbg!(&shortest_paths);
-        }
-
-        if self.rounds == 25 {
-            todo!();
-        }
-        */
         if !shortest_paths.is_empty() {
             Some(shortest_paths[0].clone())
         } else {
@@ -218,7 +173,7 @@ impl Battle {
         self.battlers
             .iter_mut()
             .filter(|b| {
-                dirs.contains(&b.position) && b.battler_type != battler.battler_type && !b.is_dead
+                !b.is_dead && b.battler_type != battler.battler_type && dirs.contains(&b.position)
             })
             .sorted_by(|a, b| {
                 a.health
@@ -389,7 +344,7 @@ pub fn part_one(input: &str) -> Option<usize> {
 }
 
 pub fn part_two(input: &str) -> Option<usize> {
-    for attack_power in 4.. {
+    for attack_power in 15.. {
         let mut battle = parse_battle(input, 200, 3, attack_power)?;
         let elves_count_before = battle
             .battlers
