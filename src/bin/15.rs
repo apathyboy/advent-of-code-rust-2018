@@ -1,5 +1,6 @@
 use glam::IVec2;
 use itertools::Itertools;
+use pathfinding::prelude::bfs;
 
 advent_of_code::solution!(15);
 
@@ -15,6 +16,7 @@ struct Battler {
     position: IVec2,
     health: i32,
     attack: i32,
+    is_dead: bool,
 }
 
 impl Battler {
@@ -24,6 +26,14 @@ impl Battler {
             position,
             health,
             attack,
+            is_dead: false,
+        }
+    }
+
+    fn hit(&mut self, damage: i32) {
+        self.health -= damage;
+        if self.health <= 0 {
+            self.is_dead = true;
         }
     }
 }
@@ -46,25 +56,207 @@ impl Battle {
         }
     }
 
+    #[allow(dead_code)]
     fn width(&self) -> i32 {
         self.terrain.iter().map(|vec| vec.x).max().unwrap() + 1
     }
 
+    #[allow(dead_code)]
     fn height(&self) -> i32 {
         self.terrain.iter().map(|vec| vec.y).max().unwrap() + 1
     }
 
-    fn take_turn(&mut self, battler: usize) {
-        // move
-        // attack
+    fn successors(&self, pos: &IVec2) -> Vec<IVec2> {
+        let dirs = [
+            IVec2::new(0, -1) + *pos,
+            IVec2::new(-1, 0) + *pos,
+            IVec2::new(1, 0) + *pos,
+            IVec2::new(0, 1) + *pos,
+        ];
 
-        todo!()
+        dirs.iter()
+            .filter(|&d| {
+                !self.terrain.contains(d)
+                    && !self.battlers.iter().any(|b| b.position == *d && !b.is_dead)
+            })
+            .cloned()
+            .collect()
+    }
+
+    fn choose_target(&self, battler: usize) -> Option<Vec<IVec2>> {
+        let dirs = [
+            IVec2::new(0, -1),
+            IVec2::new(-1, 0),
+            IVec2::new(1, 0),
+            IVec2::new(0, 1),
+        ];
+
+        let battler_obj = self.battlers[battler];
+
+        let open_adjacents = self
+            .battlers
+            .iter()
+            .filter(|b| b.battler_type != battler_obj.battler_type && !b.is_dead)
+            .map(|b| {
+                dirs.iter()
+                    .filter_map(|d| {
+                        let adjacent = *d + b.position;
+                        if !self.terrain.contains(&adjacent)
+                            && !self
+                                .battlers
+                                .iter()
+                                .any(|b| b.position == adjacent && !b.is_dead)
+                        {
+                            Some(adjacent)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+
+        let mut shortest_paths = Vec::new();
+
+        //for other in open_adjacents.iter().flatten() {
+        //    let shortest_path: Option<Vec<IVec2>> = bfs(
+        //        &battler_obj.position,
+        //        |pos| self.successors(pos),
+        //        |pos| pos == other,
+        //    );
+        //
+        //    if shortest_path.is_some() {
+        //        shortest_paths.push(shortest_path.unwrap());
+        //    }
+        //}
+
+        let battler_open_adjacents = dirs
+            .iter()
+            .filter_map(|d| {
+                let adjacent = *d + battler_obj.position;
+                if !self.terrain.contains(&adjacent)
+                    && !self
+                        .battlers
+                        .iter()
+                        .any(|b| b.position == adjacent && !b.is_dead)
+                {
+                    Some(adjacent)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        for other in open_adjacents.iter().flatten().unique() {
+            for &battler_open_adjacent in battler_open_adjacents.iter() {
+                let shortest_path: Option<Vec<IVec2>> = bfs(
+                    &battler_open_adjacent,
+                    |pos| self.successors(pos),
+                    |pos| pos == other,
+                );
+
+                if let Some(path) = shortest_path {
+                    shortest_paths.push(path);
+                }
+            }
+        }
+
+        shortest_paths.sort_by(|a, b| {
+            let a_last = a.last().unwrap();
+            let b_last = b.last().unwrap();
+            a.len()
+                .cmp(&b.len())
+                .then(a_last.y.cmp(&b_last.y).then(a_last.x.cmp(&b_last.x)))
+                .then(a[0].y.cmp(&b[0].y).then(a[0].x.cmp(&b[0].x)))
+        });
+
+        //if shortest_paths.len() > 0 {
+        //    if shortest_paths
+        //        .iter()
+        //        .filter(|p| p.len() == shortest_paths[0].len())
+        //        .count()
+        //        > 1
+        //    {
+        //        for path in shortest_paths
+        //            .iter()
+        //            .filter(|p| p.len() == shortest_paths[0].len())
+        //        {
+        //            println!("{:?}", &path);
+        //        }
+        //
+        //        println!();
+        //    }
+        //}
+
+        /*
+        if self.rounds == 15 {
+            dbg!(&battler_obj);
+            dbg!(&self.battlers);
+            dbg!(&open_adjacents);
+            dbg!(&shortest_paths);
+        }
+
+        if self.rounds == 25 {
+            todo!();
+        }
+        */
+        if !shortest_paths.is_empty() {
+            Some(shortest_paths[0].clone())
+        } else {
+            None
+        }
+    }
+
+    fn attackable(&mut self, battler: &Battler) -> Option<&mut Battler> {
+        let dirs = [
+            IVec2::new(0, -1) + battler.position,
+            IVec2::new(-1, 0) + battler.position,
+            IVec2::new(1, 0) + battler.position,
+            IVec2::new(0, 1) + battler.position,
+        ];
+
+        self.battlers
+            .iter_mut()
+            .filter(|b| {
+                dirs.contains(&b.position) && b.battler_type != battler.battler_type && !b.is_dead
+            })
+            .sorted_by(|a, b| {
+                a.health
+                    .cmp(&b.health)
+                    .then(a.position.y.cmp(&b.position.y))
+                    .then(a.position.x.cmp(&b.position.x))
+            })
+            .next()
+    }
+
+    fn take_turn(&mut self, battler: usize) {
+        let battler_obj = self.battlers[battler];
+
+        if battler_obj.is_dead {
+            return;
+        }
+
+        if let Some(attackable) = self.attackable(&battler_obj) {
+            attackable.hit(battler_obj.attack);
+            return;
+        }
+
+        if let Some(target_path) = self.choose_target(battler) {
+            self.battlers[battler].position = target_path[0];
+        }
+
+        let battler_obj = self.battlers[battler];
+
+        if let Some(attackable) = self.attackable(&battler_obj) {
+            attackable.hit(battler_obj.attack);
+        }
     }
 
     fn victory_check(&mut self) -> bool {
         if self
             .battlers
             .iter()
+            .filter(|b| !b.is_dead)
             .map(|b| b.battler_type)
             .unique()
             .count()
@@ -77,6 +269,8 @@ impl Battle {
     }
 
     fn round(&mut self) {
+        self.rounds += 1;
+
         self.battlers.sort_by(|&a, &b| {
             a.position
                 .y
@@ -85,16 +279,15 @@ impl Battle {
         });
 
         for i in 0..self.battlers.len() {
-            self.take_turn(i);
-
             if self.victory_check() {
                 return;
             }
-        }
 
-        self.rounds += 1;
+            self.take_turn(i);
+        }
     }
 
+    #[allow(dead_code)]
     fn draw(&self) {
         let width = self.width();
         let height = self.height();
@@ -112,7 +305,10 @@ impl Battle {
 
             for x in 0..width {
                 let tile = IVec2::new(x, y);
-                let battler = self.battlers.iter().find(|g| g.position == tile);
+                let battler = self
+                    .battlers
+                    .iter()
+                    .find(|g| g.position == tile && !g.is_dead);
 
                 if self.terrain.contains(&tile) {
                     print!("#");
@@ -170,19 +366,24 @@ fn parse_battle(input: &str, starting_health: i32, starting_attack: i32) -> Opti
 pub fn part_one(input: &str) -> Option<usize> {
     let mut battle = parse_battle(input, 200, 3)?;
 
-    battle.draw();
+    //battle.draw();
 
     while !battle.battle_over {
         battle.round();
-        battle.draw();
+        //battle.draw();
     }
 
-    let winning_team_health: i32 = battle.battlers.iter().map(|b| b.health).sum();
+    let winning_team_health: i32 = battle
+        .battlers
+        .iter()
+        .filter(|b| !b.is_dead)
+        .map(|b| b.health)
+        .sum();
 
-    Some(battle.rounds * winning_team_health as usize)
+    Some((battle.rounds - 1) * winning_team_health as usize)
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
+pub fn part_two(_input: &str) -> Option<u32> {
     None
 }
 
@@ -194,6 +395,38 @@ mod tests {
     fn test_part_one() {
         let result = part_one(&advent_of_code::template::read_file("examples", DAY));
         assert_eq!(result, Some(27730));
+    }
+
+    #[test]
+    fn test_part_one_2() {
+        let result = part_one(&advent_of_code::template::read_file_part(
+            "examples", DAY, 2,
+        ));
+        assert_eq!(result, Some(36334));
+    }
+
+    #[test]
+    fn test_part_one_3() {
+        let result = part_one(&advent_of_code::template::read_file_part(
+            "examples", DAY, 3,
+        ));
+        assert_eq!(result, Some(27755));
+    }
+
+    #[test]
+    fn test_part_one_4() {
+        let result = part_one(&advent_of_code::template::read_file_part(
+            "examples", DAY, 4,
+        ));
+        assert_eq!(result, Some(28944));
+    }
+
+    #[test]
+    fn test_part_one_5() {
+        let result = part_one(&advent_of_code::template::read_file_part(
+            "examples", DAY, 5,
+        ));
+        assert_eq!(result, Some(18740));
     }
 
     #[test]
