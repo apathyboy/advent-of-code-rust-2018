@@ -333,7 +333,12 @@ impl Battle {
     }
 }
 
-fn parse_battle(input: &str, starting_health: i32, starting_attack: i32) -> Option<Battle> {
+fn parse_battle(
+    input: &str,
+    starting_health: i32,
+    goblin_starting_attack: i32,
+    elf_starting_attack: i32,
+) -> Option<Battle> {
     let mut battle = Battle::new();
 
     for (y, line) in input.lines().enumerate() {
@@ -346,13 +351,13 @@ fn parse_battle(input: &str, starting_health: i32, starting_attack: i32) -> Opti
                     BattlerType::Goblin,
                     IVec2::new(x as i32, y as i32),
                     starting_health,
-                    starting_attack,
+                    goblin_starting_attack,
                 )),
                 'E' => battle.battlers.push(Battler::new(
                     BattlerType::Elf,
                     IVec2::new(x as i32, y as i32),
                     starting_health,
-                    starting_attack,
+                    elf_starting_attack,
                 )),
                 '.' => {}
                 _ => panic!("Invalid tile"),
@@ -364,7 +369,7 @@ fn parse_battle(input: &str, starting_health: i32, starting_attack: i32) -> Opti
 }
 
 pub fn part_one(input: &str) -> Option<usize> {
-    let mut battle = parse_battle(input, 200, 3)?;
+    let mut battle = parse_battle(input, 200, 3, 3)?;
 
     //battle.draw();
 
@@ -383,7 +388,40 @@ pub fn part_one(input: &str) -> Option<usize> {
     Some((battle.rounds - 1) * winning_team_health as usize)
 }
 
-pub fn part_two(_input: &str) -> Option<u32> {
+pub fn part_two(input: &str) -> Option<usize> {
+    for attack_power in 4.. {
+        let mut battle = parse_battle(input, 200, 3, attack_power)?;
+        let elves_count_before = battle
+            .battlers
+            .iter()
+            .filter(|b| b.battler_type == BattlerType::Elf && !b.is_dead)
+            .count();
+
+        //battle.draw();
+
+        while !battle.battle_over {
+            battle.round();
+            //battle.draw();
+        }
+
+        let elves_count_after = battle
+            .battlers
+            .iter()
+            .filter(|b| b.battler_type == BattlerType::Elf && !b.is_dead)
+            .count();
+
+        let winning_team_health: i32 = battle
+            .battlers
+            .iter()
+            .filter(|b| !b.is_dead)
+            .map(|b| b.health)
+            .sum();
+
+        if elves_count_before == elves_count_after {
+            return Some((battle.rounds - 1) * winning_team_health as usize);
+        }
+    }
+
     None
 }
 
@@ -432,6 +470,6 @@ mod tests {
     #[test]
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+        assert_eq!(result, Some(4988));
     }
 }
