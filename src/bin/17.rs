@@ -1,5 +1,6 @@
+use std::collections::{HashSet, VecDeque};
+
 use glam::IVec2;
-use pathfinding::prelude::dfs_reach;
 
 advent_of_code::solution!(17);
 
@@ -88,18 +89,51 @@ fn parse(input: &str) -> Option<GroundSlice> {
     ))
 }
 
-fn successors(map: &GroundSlice, current: &IVec2) -> Vec<IVec2> {
-    todo!()
-}
-
-pub fn part_one(input: &str) -> Option<u32> {
+pub fn part_one(input: &str) -> Option<usize> {
     let map = parse(input)?;
 
-    let water = dfs_reach(IVec2::new(500, 0), |n| successors(&map, n)).collect::<Vec<_>>();
+    let mut visited = HashSet::new();
+    let mut to_visit = VecDeque::from([IVec2::new(500, 1)]);
+    let mut previous = Vec::from([IVec2::new(500, 0)]);
 
-    map.draw(&water);
+    while !to_visit.is_empty() {
+        let current = to_visit.pop_front()?;
+        visited.insert(current);
 
-    None
+        let down = current + IVec2::new(0, 1);
+        let left = current + IVec2::new(-1, 0);
+        let right = current + IVec2::new(1, 0);
+
+        if map.clay.contains(&down) {
+            if !map.clay.contains(&left) && !visited.contains(&left) {
+                to_visit.push_back(left);
+            }
+
+            if !map.clay.contains(&right) && !visited.contains(&right) {
+                to_visit.push_back(right);
+            }
+        } else if !map.clay.contains(&down) && down.y <= map.bounds.lower_right.y {
+            to_visit.push_back(down);
+            previous.push(current);
+
+            if current.x < 0 {
+                todo!();
+            }
+        }
+
+        if to_visit.is_empty() && previous.len() > 1 {
+            let mut prev = previous.pop()?;
+            if prev == current {
+                prev = previous.pop()?;
+            }
+            println!("Backtracking to: {:?}", prev);
+            to_visit.push_back(prev);
+        }
+    }
+
+    map.draw(&visited.iter().cloned().collect::<Vec<_>>());
+
+    Some(visited.len())
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
@@ -113,7 +147,7 @@ mod tests {
     #[test]
     fn test_part_one() {
         let result = part_one(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+        assert_eq!(result, Some(57));
     }
 
     #[test]
