@@ -96,10 +96,6 @@ fn explore(map: &GroundSlice, start: IVec2) -> HashSet<IVec2> {
 
     visited.insert(start);
 
-    dbg!(&current);
-    dbg!(&down_flow);
-    dbg!(&visited);
-
     let mut down = current + IVec2::new(0, 1);
 
     // explore down until clay or bottom is reached
@@ -125,13 +121,20 @@ fn explore(map: &GroundSlice, start: IVec2) -> HashSet<IVec2> {
         let mut left = current + IVec2::new(-1, 0);
         let mut left_down = left + IVec2::new(0, 1);
 
-        while !map.clay.contains(&left) {
+        while !map.clay.contains(&left) && !visited.contains(&left) {
             visited.insert(left);
 
             if !map.clay.contains(&left_down) && !visited.contains(&left_down) {
                 is_overflowing = true;
+
                 visited.extend(explore(map, left_down));
-                break;
+
+                let left_down_left = left_down + IVec2::new(-1, 0);
+                if visited.contains(&left_down_left) {
+                    is_overflowing = false;
+                } else {
+                    break;
+                }
             }
 
             left += IVec2::new(-1, 0);
@@ -142,22 +145,35 @@ fn explore(map: &GroundSlice, start: IVec2) -> HashSet<IVec2> {
         let mut right = current + IVec2::new(1, 0);
         let mut right_down = right + IVec2::new(0, 1);
 
-        while !map.clay.contains(&right) {
+        while !map.clay.contains(&right) && !visited.contains(&right) {
             visited.insert(right);
 
             if !map.clay.contains(&right_down) && !visited.contains(&right_down) {
                 is_overflowing = true;
+
                 visited.extend(explore(map, right_down));
-                break;
+
+                let right_down_right = right_down + IVec2::new(1, 0);
+                if visited.contains(&right_down_right) {
+                    is_overflowing = false;
+                } else {
+                    break;
+                }
             }
 
             right += IVec2::new(1, 0);
             right_down += IVec2::new(1, 0);
         }
 
-        if !is_overflowing {
+        if !is_overflowing && !down_flow.is_empty() {
             current = down_flow.pop().unwrap();
+        } else if !is_overflowing && down_flow.is_empty() {
+            return visited;
         }
+
+        dbg!(&current);
+        dbg!(&down_flow);
+        dbg!(&visited);
     }
 
     /*
@@ -203,12 +219,15 @@ fn explore(map: &GroundSlice, start: IVec2) -> HashSet<IVec2> {
 pub fn part_one(input: &str) -> Option<usize> {
     let map = parse(input)?;
 
+    //let water = Vec::new();
+
+    //map.draw(&water);
+
     let water = explore(&map, IVec2::new(500, 1));
 
     map.draw(&water.iter().cloned().collect::<Vec<_>>());
 
-    //Some(water.len())
-    None
+    Some(water.len())
 }
 
 pub fn part_two(_input: &str) -> Option<u32> {
