@@ -1,4 +1,4 @@
-use std::collections::{HashSet, VecDeque};
+use std::collections::HashSet;
 
 use glam::IVec2;
 
@@ -89,103 +89,78 @@ fn parse(input: &str) -> Option<GroundSlice> {
     ))
 }
 
-/*
 fn explore(map: &GroundSlice, start: IVec2) -> HashSet<IVec2> {
     let mut visited = HashSet::new();
+    let mut down_flow = Vec::from([start]);
+    let mut current = start;
 
-    // beginning with the starting point
-    let mut to_visit: VecDeque<IVec2> = VecDeque::from([start]);
-    let mut previous: Vec<IVec2> = Vec::new();
-    let mut backtracking_to_lip: bool = false;
+    visited.insert(start);
 
-    while !to_visit.is_empty() {
-        let current = to_visit.pop_front().unwrap();
+    dbg!(&current);
+    dbg!(&down_flow);
+    dbg!(&visited);
 
-        visited.insert(current);
+    let mut down = current + IVec2::new(0, 1);
 
-        if map.bounds.lower_right.y == current.y {
-            return visited;
-        }
-
-        let down = current + IVec2::new(0, 1);
-        let left = current + IVec2::new(-1, 0);
-        let right = current + IVec2::new(1, 0);
-
-        // go down until clay is reached
-        if !map.clay.contains(&down)
-            && !visited.contains(&down)
-            && current.y < map.bounds.lower_right.y
-        {
-            if !previous.is_empty() && current.x != previous.last().unwrap().x {
-                previous.clear();
-                println!("clearing backtrack");
-                backtracking_to_lip = false;
-            }
-
-            if down.y <= map.bounds.lower_right.y {
-                previous.push(current);
-
-                let explored = explore(map, down);
-
-                if !explored.is_empty()
-                    && explored.iter().next().unwrap().y == map.bounds.lower_right.y
-                {
-                    previous.clear();
-                }
-
-                println!("Current: {:?}", current);
-                dbg!(&explored);
-
-                visited.extend(explored.clone());
-
-                if explored.iter().all(|e| e.y == current.y + 1) {
-                    backtracking_to_lip = true;
-
-                    if !previous.is_empty() && previous.last().unwrap().x == current.x {
-                        to_visit.push_back(previous.pop().unwrap());
-                        continue;
-                    }
-                }
-
-                if explored.iter().all(|e| e.x == current.x) {
-                    return visited;
-                }
-            } else {
-                return visited;
-            }
-        }
-
-        if !backtracking_to_lip {
-            if current.y <= map.bounds.lower_right.y {
-                if !map.clay.contains(&left) && !visited.contains(&left) {
-                    to_visit.push_back(left);
-                }
-
-                if !map.clay.contains(&right) && !visited.contains(&right) {
-                    to_visit.push_back(right);
-                }
-            }
-        }
-
-        to_visit.retain(|f| *f != current);
-
-        dbg!(&to_visit);
-        dbg!(&previous);
-        dbg!(&current);
-
-        // then reach left and right
-        // if walls are met on both sides then backtrack
-        // reach left and right and backtrack until level of no walls on either (or both) the sides or no more backtracking possible
-        // if during the spreading the water goes over the edge, recurse and combine the results
+    // explore down until clay or bottom is reached
+    while !map.clay.contains(&down) && down.y <= map.bounds.lower_right.y {
+        down_flow.push(down);
+        visited.insert(down);
+        current = down;
+        down += IVec2::new(0, 1);
     }
 
-    visited
-}
-*/
+    // return if bottom is reached
+    if current.y == map.bounds.lower_right.y {
+        return visited;
+    }
 
-fn explore(map: &GroundSlice, start: IVec2, previous: &mut Vec<IVec2>) -> HashSet<IVec2> {
-    let mut visited = HashSet::new();
+    down_flow.pop();
 
+    let mut is_overflowing = false;
+
+    // while no overflow is found
+    while !is_overflowing {
+        // explore left until barrier is found or overflow occurs
+        let mut left = current + IVec2::new(-1, 0);
+        let mut left_down = left + IVec2::new(0, 1);
+
+        while !map.clay.contains(&left) {
+            visited.insert(left);
+
+            if !map.clay.contains(&left_down) && !visited.contains(&left_down) {
+                is_overflowing = true;
+                visited.extend(explore(map, left_down));
+                break;
+            }
+
+            left += IVec2::new(-1, 0);
+            left_down += IVec2::new(-1, 0);
+        }
+
+        // explore right until barrier is found or overflow occurs
+        let mut right = current + IVec2::new(1, 0);
+        let mut right_down = right + IVec2::new(0, 1);
+
+        while !map.clay.contains(&right) {
+            visited.insert(right);
+
+            if !map.clay.contains(&right_down) && !visited.contains(&right_down) {
+                is_overflowing = true;
+                visited.extend(explore(map, right_down));
+                break;
+            }
+
+            right += IVec2::new(1, 0);
+            right_down += IVec2::new(1, 0);
+        }
+
+        if !is_overflowing {
+            current = down_flow.pop().unwrap();
+        }
+    }
+
+    /*
     // beginning with the starting point
     let mut to_visit: VecDeque<IVec2> = VecDeque::from([start]);
     //let mut previous: Vec<IVec2> = Vec::new();
@@ -196,10 +171,8 @@ fn explore(map: &GroundSlice, start: IVec2, previous: &mut Vec<IVec2>) -> HashSe
         visited.insert(current);
 
         let down = current + IVec2::new(0, 1);
-        //let left = current + IVec2::new(-1, 0);
-        //let right = current + IVec2::new(1, 0);
 
-        // go down until clay is reached
+        // go down until clay or bottom is reached
         if !map.clay.contains(&down)
             && !visited.contains(&down)
             && current.y < map.bounds.lower_right.y
@@ -211,16 +184,18 @@ fn explore(map: &GroundSlice, start: IVec2, previous: &mut Vec<IVec2>) -> HashSe
             return visited;
         }
 
+        if current.y == map.bounds.lower_right.y {
+            return visited;
+        }
+
+        // explore left until
+
         dbg!(&current);
         dbg!(&previous);
         dbg!(&to_visit);
         dbg!(&visited);
-
-        // then reach left and right
-        // if walls are met on both sides then backtrack
-        // reach left and right and backtrack until level of no walls on either (or both) the sides or no more backtracking possible
-        // if during the spreading the water goes over the edge, recurse and combine the results
     }
+    */
 
     visited
 }
@@ -228,53 +203,12 @@ fn explore(map: &GroundSlice, start: IVec2, previous: &mut Vec<IVec2>) -> HashSe
 pub fn part_one(input: &str) -> Option<usize> {
     let map = parse(input)?;
 
-    let mut previous = Vec::new();
-    let water = explore(&map, IVec2::new(500, 1), &mut previous);
-
-    /*
-    let mut visited = HashSet::new();
-    let mut to_visit = VecDeque::from([IVec2::new(500, 1)]);
-    let mut previous = Vec::from([IVec2::new(500, 0)]);
-
-    while !to_visit.is_empty() {
-        let current = to_visit.pop_front()?;
-        visited.insert(current);
-
-        let down = current + IVec2::new(0, 1);
-        let left = current + IVec2::new(-1, 0);
-        let right = current + IVec2::new(1, 0);
-
-        if map.clay.contains(&down) {
-            if !map.clay.contains(&left) && !visited.contains(&left) {
-                to_visit.push_back(left);
-            }
-
-            if !map.clay.contains(&right) && !visited.contains(&right) {
-                to_visit.push_back(right);
-            }
-        } else if !map.clay.contains(&down) && down.y <= map.bounds.lower_right.y {
-            to_visit.push_back(down);
-            previous.push(current);
-
-            if current.x < 0 {
-                todo!();
-            }
-        }
-
-        if to_visit.is_empty() && previous.len() > 1 {
-            let mut prev = previous.pop()?;
-            if prev == current {
-                prev = previous.pop()?;
-            }
-            println!("Backtracking to: {:?}", prev);
-            to_visit.push_back(prev);
-        }
-    }
-    */
+    let water = explore(&map, IVec2::new(500, 1));
 
     map.draw(&water.iter().cloned().collect::<Vec<_>>());
 
-    Some(water.len())
+    //Some(water.len())
+    None
 }
 
 pub fn part_two(_input: &str) -> Option<u32> {
