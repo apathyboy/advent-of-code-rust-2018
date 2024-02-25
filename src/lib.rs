@@ -109,3 +109,68 @@ pub fn load_opcodes() -> HashMap<String, Opcode> {
 
     opcodes
 }
+
+#[derive(Debug, Clone)]
+pub struct Instruction {
+    label: String,
+    input_a: usize,
+    input_b: usize,
+    output: usize,
+}
+
+impl Instruction {
+    pub fn new(label: &str, input_a: usize, input_b: usize, output: usize) -> Self {
+        Self {
+            label: label.to_owned(),
+            input_a,
+            input_b,
+            output,
+        }
+    }
+}
+
+pub type Program = Vec<Instruction>;
+
+pub struct Computer {
+    pub opcodes: HashMap<String, Opcode>,
+    pub ip_register: usize,
+    pub ip: usize,
+    pub registers: [usize; 6],
+    pub program: Program,
+}
+
+impl Computer {
+    pub fn new(ip_register: usize, program: Program) -> Self {
+        Self {
+            opcodes: load_opcodes(),
+            ip_register,
+            ip: 0,
+            registers: [0, 0, 0, 0, 0, 0],
+            program,
+        }
+    }
+
+    pub fn tick(&mut self) {
+        let instruction = &self.program[self.ip];
+
+        self.registers[self.ip_register] = self.ip;
+
+        let opcode = self.opcodes.get(&instruction.label).unwrap();
+
+        opcode(
+            &mut self.registers,
+            instruction.input_a,
+            instruction.input_b,
+            instruction.output,
+        );
+
+        self.ip = self.registers[self.ip_register];
+        self.ip += 1;
+    }
+
+    pub fn run(&mut self) {
+        while self.ip < self.program.len() {
+            self.tick();
+        }
+    }
+}
