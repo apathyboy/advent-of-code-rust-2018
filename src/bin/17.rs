@@ -4,6 +4,10 @@ use glam::IVec2;
 
 advent_of_code::solution!(17);
 
+fn in_range(x: i32, a0: i32, a1: i32) -> bool {
+    x >= a0 && x <= a1
+}
+
 struct Bounds {
     upper_left: IVec2,
     lower_right: IVec2,
@@ -19,23 +23,35 @@ impl Bounds {
 }
 
 struct GroundSlice {
-    clay: Vec<IVec2>,
+    clay: HashSet<IVec2>,
+    settled: HashSet<IVec2>,
+    flowing: HashSet<IVec2>,
     bounds: Bounds,
+    max_y: i32,
+    min_y: i32,
 }
 
 impl GroundSlice {
-    fn new(clay: Vec<IVec2>) -> Self {
+    fn new(clay: HashSet<IVec2>) -> Self {
         let x_min = clay.iter().map(|p| p.x).min().unwrap();
         let x_max = clay.iter().map(|p| p.x).max().unwrap();
         let y_max = clay.iter().map(|p| p.y).max().unwrap();
 
+        let max_y = clay.iter().map(|p| p.y).max().unwrap();
+        let min_y = clay.iter().map(|p| p.y).min().unwrap();
+
         Self {
             clay,
+            settled: HashSet::new(),
+            flowing: HashSet::new(),
             bounds: Bounds::new(IVec2::new(x_min - 1, 0), IVec2::new(x_max + 1, y_max)),
+            max_y,
+            min_y,
         }
     }
 
-    fn draw(&self, water: &[IVec2]) {
+    #[allow(dead_code)]
+    fn draw(&self) {
         for y in self.bounds.upper_left.y..=self.bounds.lower_right.y {
             for x in self.bounds.upper_left.x..=self.bounds.lower_right.x {
                 let square = IVec2::new(x, y);
@@ -44,7 +60,9 @@ impl GroundSlice {
                     print!("#");
                 } else if square == IVec2::new(500, 0) {
                     print!("+");
-                } else if water.contains(&square) {
+                } else if self.settled.contains(&square) {
+                    print!("~");
+                } else if self.flowing.contains(&square) {
                     print!("|");
                 } else {
                     print!(".");
@@ -56,11 +74,53 @@ impl GroundSlice {
 
         println!();
     }
+
+    fn fill(&mut self, start: IVec2, dir: IVec2) -> bool {
+        self.flowing.insert(start);
+
+        let below = IVec2::new(start.x, start.y + 1);
+
+        if !self.clay.contains(&below)
+            && !self.flowing.contains(&below)
+            && in_range(below.y, 1, self.bounds.lower_right.y)
+        {
+            self.fill(below, IVec2::new(0, 1));
+        }
+
+        if !self.clay.contains(&below) && !self.settled.contains(&below) {
+            return false;
+        }
+
+        let mut left = IVec2::new(start.x - 1, start.y);
+        let mut right = IVec2::new(start.x + 1, start.y);
+
+        let left_filled = self.clay.contains(&left)
+            || !self.flowing.contains(&left) && self.fill(left, IVec2::new(-1, 0));
+        let right_filled = self.clay.contains(&right)
+            || !self.flowing.contains(&right) && self.fill(right, IVec2::new(1, 0));
+
+        if dir == IVec2::new(0, 1) && left_filled && right_filled {
+            self.settled.insert(start);
+
+            while self.flowing.contains(&left) {
+                self.settled.insert(left);
+                left.x -= 1;
+            }
+
+            while self.flowing.contains(&right) {
+                self.settled.insert(right);
+                right.x += 1;
+            }
+        }
+
+        dir == IVec2::new(-1, 0) && (left_filled || self.clay.contains(&left))
+            || dir == IVec2::new(1, 0) && (right_filled || self.clay.contains(&right))
+    }
 }
 
-fn parse_line(line: &str) -> Option<Vec<IVec2>> {
+fn parse_line(line: &str) -> Option<HashSet<IVec2>> {
     let (left, right) = line.split_once(", ")?;
-    let mut clay = Vec::new();
+    let mut clay = HashSet::new();
 
     if &left[0..1] == "x" {
         let x: i32 = left[2..].parse().ok()?;
@@ -68,7 +128,7 @@ fn parse_line(line: &str) -> Option<Vec<IVec2>> {
         let (y_min, y_max) = right[2..].split_once("..")?;
 
         for y in y_min.parse::<i32>().ok()?..=y_max.parse::<i32>().ok()? {
-            clay.push(IVec2::new(x, y));
+            clay.insert(IVec2::new(x, y));
         }
     } else {
         let y: i32 = left[2..].parse().ok()?;
@@ -76,7 +136,7 @@ fn parse_line(line: &str) -> Option<Vec<IVec2>> {
         let (x_min, x_max) = right[2..].split_once("..")?;
 
         for x in x_min.parse::<i32>().ok()?..=x_max.parse::<i32>().ok()? {
-            clay.push(IVec2::new(x, y));
+            clay.insert(IVec2::new(x, y));
         }
     }
 
@@ -89,149 +149,32 @@ fn parse(input: &str) -> Option<GroundSlice> {
     ))
 }
 
-fn explore(map: &GroundSlice, start: IVec2) -> HashSet<IVec2> {
-    let mut visited = HashSet::new();
-    let mut down_flow = Vec::from([start]);
-    let mut current = start;
-
-    visited.insert(start);
-
-    let mut down = current + IVec2::new(0, 1);
-
-    // explore down until clay or bottom is reached
-    while !map.clay.contains(&down) && down.y <= map.bounds.lower_right.y {
-        down_flow.push(down);
-        visited.insert(down);
-        current = down;
-        down += IVec2::new(0, 1);
-    }
-
-    // return if bottom is reached
-    if current.y == map.bounds.lower_right.y {
-        return visited;
-    }
-
-    down_flow.pop();
-
-    let mut is_overflowing = false;
-
-    // while no overflow is found
-    while !is_overflowing {
-        // explore left until barrier is found or overflow occurs
-        let mut left = current + IVec2::new(-1, 0);
-        let mut left_down = left + IVec2::new(0, 1);
-
-        while !map.clay.contains(&left) && !visited.contains(&left) {
-            visited.insert(left);
-
-            if !map.clay.contains(&left_down) && !visited.contains(&left_down) {
-                is_overflowing = true;
-
-                visited.extend(explore(map, left_down));
-
-                let left_down_left = left_down + IVec2::new(-1, 0);
-                if visited.contains(&left_down_left) {
-                    is_overflowing = false;
-                } else {
-                    break;
-                }
-            }
-
-            left += IVec2::new(-1, 0);
-            left_down += IVec2::new(-1, 0);
-        }
-
-        // explore right until barrier is found or overflow occurs
-        let mut right = current + IVec2::new(1, 0);
-        let mut right_down = right + IVec2::new(0, 1);
-
-        while !map.clay.contains(&right) && !visited.contains(&right) {
-            visited.insert(right);
-
-            if !map.clay.contains(&right_down) && !visited.contains(&right_down) {
-                is_overflowing = true;
-
-                visited.extend(explore(map, right_down));
-
-                let right_down_right = right_down + IVec2::new(1, 0);
-                if visited.contains(&right_down_right) {
-                    is_overflowing = false;
-                } else {
-                    break;
-                }
-            }
-
-            right += IVec2::new(1, 0);
-            right_down += IVec2::new(1, 0);
-        }
-
-        if !is_overflowing && !down_flow.is_empty() {
-            current = down_flow.pop().unwrap();
-        } else if !is_overflowing && down_flow.is_empty() {
-            return visited;
-        }
-
-        dbg!(&current);
-        dbg!(&down_flow);
-        dbg!(&visited);
-    }
-
-    /*
-    // beginning with the starting point
-    let mut to_visit: VecDeque<IVec2> = VecDeque::from([start]);
-    //let mut previous: Vec<IVec2> = Vec::new();
-
-    while !to_visit.is_empty() {
-        let current = to_visit.pop_front().unwrap();
-
-        visited.insert(current);
-
-        let down = current + IVec2::new(0, 1);
-
-        // go down until clay or bottom is reached
-        if !map.clay.contains(&down)
-            && !visited.contains(&down)
-            && current.y < map.bounds.lower_right.y
-        {
-            previous.push(current);
-
-            let explored = explore(map, down, previous);
-            visited.extend(explored.clone());
-            return visited;
-        }
-
-        if current.y == map.bounds.lower_right.y {
-            return visited;
-        }
-
-        // explore left until
-
-        dbg!(&current);
-        dbg!(&previous);
-        dbg!(&to_visit);
-        dbg!(&visited);
-    }
-    */
-
-    visited
-}
-
 pub fn part_one(input: &str) -> Option<usize> {
-    let map = parse(input)?;
+    let mut slice = parse(input)?;
 
-    //let water = Vec::new();
+    slice.fill(IVec2::new(500, 0), IVec2::new(0, 1));
 
-    //map.draw(&water);
-
-    let water = explore(&map, IVec2::new(500, 1));
-
-    map.draw(&water.iter().cloned().collect::<Vec<_>>());
-
-    Some(water.len())
+    Some(
+        slice
+            .flowing
+            .union(&slice.settled)
+            .filter(|x| in_range(x.y, slice.min_y, slice.max_y))
+            .count(),
+    )
 }
 
-pub fn part_two(_input: &str) -> Option<u32> {
-    None
+pub fn part_two(input: &str) -> Option<usize> {
+    let mut slice = parse(input)?;
+
+    slice.fill(IVec2::new(500, 0), IVec2::new(0, 1));
+
+    Some(
+        slice
+            .settled
+            .iter()
+            .filter(|x| in_range(x.y, slice.min_y, slice.max_y))
+            .count(),
+    )
 }
 
 #[cfg(test)]
@@ -247,6 +190,6 @@ mod tests {
     #[test]
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+        assert_eq!(result, Some(29));
     }
 }
