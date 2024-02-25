@@ -174,3 +174,24 @@ impl Computer {
         }
     }
 }
+
+fn parse_ip_register(line: &str) -> Option<usize> {
+    line[4..].parse().ok()
+}
+
+fn parse_instruction(line: &str) -> Option<Instruction> {
+    let label = &line[0..4];
+    let vals = line[5..]
+        .split(' ')
+        .filter_map(|n| n.parse().ok())
+        .collect::<Vec<_>>();
+
+    Some(Instruction::new(label, vals[0], vals[1], vals[2]))
+}
+
+pub fn parse_computer_program(input: &str) -> Option<(usize, Program)> {
+    let mut lines = input.lines();
+    let ip_register = parse_ip_register(lines.next()?)?;
+
+    Some((ip_register, lines.filter_map(parse_instruction).collect()))
+}
