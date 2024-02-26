@@ -136,6 +136,7 @@ pub struct Computer {
     pub ip_register: usize,
     pub ip: usize,
     pub registers: [usize; 6],
+    pub instructions_executed: usize,
     pub program: Program,
 }
 
@@ -146,8 +147,15 @@ impl Computer {
             ip_register,
             ip: 0,
             registers: [0, 0, 0, 0, 0, 0],
+            instructions_executed: 0,
             program,
         }
+    }
+
+    pub fn reset_program(&mut self) {
+        self.ip = 0;
+        self.registers = [0, 0, 0, 0, 0, 0];
+        self.instructions_executed = 0;
     }
 
     pub fn tick(&mut self) {
@@ -163,6 +171,8 @@ impl Computer {
             instruction.input_b,
             instruction.output,
         );
+
+        self.instructions_executed += 1;
 
         self.ip = self.registers[self.ip_register];
         self.ip += 1;
