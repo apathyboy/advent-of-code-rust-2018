@@ -77,11 +77,7 @@ pub fn part_two(input: &str) -> Option<i32> {
         }
     }
 
-    let max_end = *x_map
-        .keys()
-        .skip_while(|&&v| v <= max_start)
-        .next()
-        .unwrap();
+    let max_end = *x_map.keys().find(|&&v| v > max_start).unwrap();
 
     Some(max_end - 1)
 }
