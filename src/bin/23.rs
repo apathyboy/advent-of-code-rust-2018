@@ -53,46 +53,37 @@ pub fn part_one(input: &str) -> Option<usize> {
     Some(in_range)
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
+pub fn part_two(input: &str) -> Option<i32> {
     let nanobots = parse(input);
-    let mut dist = BTreeMap::new();
-    for bot in nanobots {
-        let d = bot.position.x + bot.position.y + bot.position.z;
-        *dist.entry(d - bot.radius as i32).or_insert(0) += 1;
-        *dist.entry(d + bot.radius as i32 + 1).or_insert(0) -= 1;
-    }
-    let run = dist
-        .iter()
-        .scan(0i32, |s, (d, &x)| {
-            *s += x;
-            Some((d, *s))
-        })
-        .collect::<Vec<_>>();
-    let max = run.iter().map(|&(_, n)| n).max().unwrap();
-    let intervals = run
-        .iter()
-        .zip(run.iter().skip(1))
-        .filter_map(
-            |(&(a, n), &(b, _))| {
-                if n == max {
-                    Some((*a, *b - 1))
-                } else {
-                    None
-                }
-            },
-        )
-        .collect::<Vec<_>>();
-    let result = if intervals.iter().any(|&(a, b)| a <= 0 && b >= 0) {
-        0
-    } else {
-        intervals
-            .iter()
-            .map(|&(a, b)| if b < 0 { -b } else { a })
-            .min()
-            .unwrap()
-    };
+    let mut x_map = BTreeMap::new();
 
-    Some(result as u32)
+    for b in &nanobots {
+        let x_min = b.position.x + b.position.y + b.position.z - b.radius as i32;
+        let x_max = b.position.x + b.position.y + b.position.z + b.radius as i32 + 1;
+
+        *x_map.entry(x_min).or_insert(0) += 1;
+        *x_map.entry(x_max).or_insert(0) -= 1;
+    }
+
+    let mut running = 0;
+    let mut max = 0;
+    let mut max_start = 0;
+
+    for (&pos, &v) in &x_map {
+        running += v;
+        if running > max {
+            max = running;
+            max_start = pos;
+        }
+    }
+
+    let max_end = *x_map
+        .keys()
+        .skip_while(|&&v| v <= max_start)
+        .next()
+        .unwrap();
+
+    Some(max_end - 1)
 }
 
 #[cfg(test)]
