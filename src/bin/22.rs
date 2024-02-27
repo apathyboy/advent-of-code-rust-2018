@@ -76,7 +76,7 @@ pub fn part_two(input: &str) -> Option<usize> {
 
     const ALLOWED: [usize; 3] = [TORCH + GEAR, NEITHER + GEAR, NEITHER + TORCH];
 
-    let result = astar(
+    astar(
         &((0, 0), TORCH),
         |&((x, y), eq)| {
             matrix
@@ -88,9 +88,8 @@ pub fn part_two(input: &str) -> Option<usize> {
         },
         |&((x, y), _)| x.abs_diff(target.x as usize) + y.abs_diff(target.y as usize),
         |&((x, y), eq)| x == target.x as usize && y == target.y as usize && eq == TORCH,
-    );
-
-    result.map(|(_, cost)| cost)
+    )
+    .map(|(_, cost)| cost)
 }
 
 #[cfg(test)]
