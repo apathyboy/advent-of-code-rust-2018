@@ -12,7 +12,7 @@ pub fn part_one(input: &str) -> Option<usize> {
         if computer.ip == 28 {
             let value = computer.registers[5];
             if seen.contains(&value) {
-                return Some(seen.first().unwrap().clone());
+                return Some(*seen.first().unwrap());
             }
             seen.push(value);
         }
@@ -29,7 +29,7 @@ pub fn part_two(input: &str) -> Option<usize> {
         if computer.ip == 28 {
             let value = computer.registers[5];
             if seen.contains(&value) {
-                return Some(seen.last().unwrap().clone());
+                return Some(*seen.last().unwrap());
             }
             seen.push(value);
         }
