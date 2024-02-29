@@ -41,8 +41,8 @@ fn parse_group(input: &str) -> Option<Group> {
 
         let weaknesses_immunities_str = weaknesses_immunities_str
             .trim()
-            .strip_prefix("(")?
-            .strip_suffix(")")?;
+            .strip_prefix('(')?
+            .strip_suffix(')')?;
 
         for mut attr in weaknesses_immunities_str.split("; ") {
             if attr.starts_with("weak to ") {
@@ -59,7 +59,7 @@ fn parse_group(input: &str) -> Option<Group> {
         rest = rest.strip_prefix("with an attack that does ")?;
     }
 
-    let (damage, rest) = rest.split_once(" ")?;
+    let (damage, rest) = rest.split_once(' ')?;
     let (damage_type, rest) = rest.split_once(" damage at initiative ")?;
     let initiative = rest.parse().ok()?;
 
